@@ -1,0 +1,107 @@
+---
+title: "9.Model formation"
+output: html_notebook
+---
+
+# 3 steps in regression model develop
+1) model formation: all candidate explanatory variables and higher order term or interaction term.
+2) variable selection: compare models to determine the best model 
+3) model diagnostics: 
+##residual analysis: 
+##Influence statistcis: 
+
+Model formation and varibale selection
+```{r}
+sat <- read.csv('desktop/sat.txt')
+```
+# pairspannel plot-see relationship between variable 
+## raw scatterplot pairs
+```{r}
+source("desktop/pairs.panels.r")
+pairs.panels(sat[,2:8])
+```
+## log scatterplot pairs
+```{r}
+sat2 <- data.frame(sat[,1:2], logtak=log(sat[,3]), sat[,4:8])
+pairs.panels(sat2[,2:8])
+```
+
+# assess model fit: R-adj(big), AIG BIG Cp Press
+after form model with all possible varibales, check if any variable need to be delete
+## automatically check all subset model
+### Cp-leaps(x,y) 
+```{r}
+library(leaps)
+x <- sat2[,c(4,5)]
+leaps(x, sat$sat)
+```
+Cp plot-choose the one with small cp value and near y=x line 
+```{r}
+mallow <- leaps(x, sat2$sat)
+plot(mallow$size, mallow$Cp, main="Cp Plot", xlab="p", ylab="Cp", xlim=c(2,7), ylim=c(0,15),pch=19, cex=1.4)
+abline(0,1,lwd=2)
+```
+
+### regsubsets
+```{r}
+subsets <- regsubsets(sat~income+years, data=sat2, nbest=2)
+summary(subsets)
+summary(subsets)$cp
+summary(subsets)$adjr2
+summary(subsets)$bic
+```
+1. nbest=1, just choose 1 best model for each number of parameter in model 
+2. From the result we can see the result is the same with Cp leaps function, so these two are automatically caculate all possible combination of model, including interaction term.  
+
+#### plot of subset-according to BIC and Cp 
+```{r}
+plot(subsets)
+plot(subsets, scale="Cp")
+```
+
+### semiauto-step-AIC BIC(no interaction)
+step(reg, k=2) AIC
+step(reg2, k=log(n)) BIC show more panalty on model complexity, if complex BIC higher
+#### backward elimination, each time delete one parameter 
+if BIC n <- dim(sat2)[1] 
+```{r}
+null <- lm(sat~1, data=sat2)
+full <- lm(sat~.-state, data=sat2)
+bwd <- step(full, direction="backward", k=2)
+```
+#### forward elimination
+```{r}
+fwd <- step(null, scope=formula(full), direction="forward")
+```
+#### stepwise elimination
+```{r}
+stepwise <- step(null, scope=formula(full), direction="both")
+```
+
+## manually assess-same like step function
+###1 
+```{r}
+reg1 <- lm(sat~logtak+income+years, data=sat2)
+summary(reg1)
+library(MPV)
+PRESS(reg1)
+step(reg1, k=2)
+n <- dim(sat2)[1]
+step(reg1, k=log(n))
+```
+###2 delete highest p-value income
+```{r}
+reg2 <- update(reg1,.~.-income)
+summary(reg2)
+PRESS(reg2)
+step(...)
+```
+###3 delete highest p-value....until p-value are above 5%
+
+notion: when use update to eliminate variable, need to pay attention to hierarch, when 2nd in,can't delete 1st order term. 
+
+
+
+
+
+
